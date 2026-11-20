@@ -85,7 +85,7 @@ jobs:
           Categories=Utility;
           EOF
 
-          wget -q https://github.com
+          curl -fL -o appimagetool-x86_64.AppImage https://github.com
           chmod +x appimagetool-x86_64.AppImage
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run GeneradorQR.AppDir GeneradorQR-Linux-x86_64.AppImage
 
