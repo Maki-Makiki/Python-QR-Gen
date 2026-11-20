@@ -1,25 +1,27 @@
 import io
-import subprocess
-
 import os
+import subprocess
 import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import qrcode
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
-ver = "1.2.0"
+ver = "1.2.1"
 autor = "Maki"
+
 
 class GeneradorQRApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Generador de QR Portable v" + ver + " - by "+ autor)
+        self.root.title("Generador de QR Portable v" + ver + " - by " + autor)
+
         # Cargar el ícono de la ventana y barra de tareas
         try:
             ruta_icono = self.obtener_ruta_recurso("QR Code Icon.png")
             self.icono_img = ImageTk.PhotoImage(Image.open(ruta_icono))
             self.root.iconphoto(True, self.icono_img)
+            self.root.wm_iconphoto(True, self.icono_img)
         except Exception as e:
             print("No se pudo cargar el ícono:", e)
 
@@ -83,6 +85,7 @@ class GeneradorQRApp:
             insertbackground=self.colores["fg"],
             relief="solid",
             bd=1,
+            highlightthickness=0,
         )
         self.url_entry.grid(row=1, column=0, pady=5, padx=20, sticky="ew", ipady=3)
         self.url_entry.focus()
@@ -105,6 +108,8 @@ class GeneradorQRApp:
             activebackground=self.colores["bg"],
             activeforeground=self.colores["fg"],
             selectcolor=self.colores["select_bg"],
+            highlightthickness=0,
+            bd=0,
         )
         self.chk_auto.grid(row=0, column=0, sticky="w", pady=(0, 8))
 
@@ -120,6 +125,8 @@ class GeneradorQRApp:
             activebackground=self.colores["bg"],
             activeforeground=self.colores["fg"],
             selectcolor=self.colores["select_bg"],
+            highlightthickness=0,
+            bd=0,
         )
         self.chk_url.grid(row=0, column=1, sticky="w", pady=(0, 8))
 
@@ -131,6 +138,8 @@ class GeneradorQRApp:
             fg="white",
             font=("Arial", 10, "bold"),
             relief="flat",
+            highlightthickness=0,
+            bd=0,
             cursor="hand2",
         )
         self.btn_generar.grid(row=1, column=0, sticky="ew", padx=(0, 5), ipady=4)
@@ -144,20 +153,21 @@ class GeneradorQRApp:
             bg=self.colores["btn_sec_bg"],
             fg=self.colores["btn_sec_fg"],
             relief="flat",
+            highlightthickness=0,
+            bd=0,
             cursor="hand2",
         )
         self.btn_guardar.grid(row=1, column=1, sticky="ew", padx=(5, 0), ipady=4)
 
-        # Fila 3: Área para mostrar el QR
-        self.lbl_imagen = tk.Label(
+        # Fila 3: Área para mostrar el QR (Canvas para renderizado fiable en Linux y Windows)
+        self.canvas_qr = tk.Canvas(
             root,
-            text="Aquí aparecerá tu QR",
             bg=self.colores["preview_bg"],
-            fg=self.colores["fg"],
-            relief="flat",
+            highlightthickness=0,
+            bd=0,
         )
-        self.lbl_imagen.grid(row=3, column=0, pady=(5, 20), padx=20, sticky="nsew")
-        self.lbl_imagen.bind("<Configure>", self.redimensionar_preview)
+        self.canvas_qr.grid(row=3, column=0, pady=(5, 20), padx=20, sticky="nsew")
+        self.canvas_qr.bind("<Configure>", self.redimensionar_preview)
 
         # Menú contextual (Clic derecho en la imagen)
         self.menu_qr = tk.Menu(
@@ -168,10 +178,12 @@ class GeneradorQRApp:
             activebackground=self.colores["accent"],
             activeforeground="white",
         )
-        self.menu_qr.add_command(label="Copiar imagen al portapapeles", command=self.copiar_al_portapapeles)
+        self.menu_qr.add_command(
+            label="Copiar imagen al portapapeles", command=self.copiar_al_portapapeles
+        )
         self.menu_qr.add_command(label="Guardar como...", command=self.guardar_qr)
 
-        self.lbl_imagen.bind("<Button-3>", self.mostrar_menu_qr)
+        self.canvas_qr.bind("<Button-3>", self.mostrar_menu_qr)
 
         # Pintar la barra superior en oscuro una vez que la ventana ya sea visible
         if self.es_oscuro:
@@ -182,6 +194,7 @@ class GeneradorQRApp:
         if sys.platform == "win32":
             try:
                 import winreg
+
                 ruta = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
                 with winreg.OpenKey(winreg.HKEY_CURRENT_USER, ruta) as clave:
                     valor, _ = winreg.QueryValueEx(clave, "AppsUseLightTheme")
@@ -190,23 +203,22 @@ class GeneradorQRApp:
                 pass
         # 2. Linux (BazziteOS / Fedora KDE o GNOME)
         elif sys.platform.startswith("linux"):
-            import subprocess
-            # Intento A: Escritorios GTK / GNOME / Portal estándar
             try:
                 salida = subprocess.check_output(
                     ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
-                    stderr=subprocess.DEVNULL, text=True
+                    stderr=subprocess.DEVNULL,
+                    text=True,
                 )
                 if "dark" in salida.lower():
                     return True
             except Exception:
                 pass
-            # Intento B: KDE Plasma (Bazzite Deck / Desktop)
             try:
                 for cmd in ("kreadconfig6", "kreadconfig5"):
                     salida = subprocess.check_output(
                         [cmd, "--group", "General", "--key", "ColorScheme"],
-                        stderr=subprocess.DEVNULL, text=True
+                        stderr=subprocess.DEVNULL,
+                        text=True,
                     )
                     if "dark" in salida.lower():
                         return True
@@ -215,27 +227,25 @@ class GeneradorQRApp:
         return False
 
     def obtener_ruta_recurso(self, nombre_archivo):
-        # Obtiene la ruta correcta del archivo tanto en desarrollo como en el .exe portable.
         if hasattr(sys, "_MEIPASS"):
             return os.path.join(sys._MEIPASS, nombre_archivo)
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), nombre_archivo)
-    
+
     def pintar_barra_oscura(self):
-            if sys.platform == "win32":
-                try:
-                    import ctypes
-                    # GA_ROOT = 2 obtiene el identificador real de la ventana de Windows
-                    hwnd = ctypes.windll.user32.GetAncestor(self.root.winfo_id(), 2)
-                    valor = ctypes.c_int(1)
-                    # Intentar atributo de Windows 11 / Windows 10 reciente (20) y versión anterior (19)
-                    for atributo in (20, 19):
-                        res = ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                            hwnd, atributo, ctypes.byref(valor), ctypes.sizeof(valor)
-                        )
-                        if res == 0:
-                            break
-                except Exception:
-                    pass
+        if sys.platform == "win32":
+            try:
+                import ctypes
+
+                hwnd = ctypes.windll.user32.GetAncestor(self.root.winfo_id(), 2)
+                valor = ctypes.c_int(1)
+                for atributo in (20, 19):
+                    res = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                        hwnd, atributo, ctypes.byref(valor), ctypes.sizeof(valor)
+                    )
+                    if res == 0:
+                        break
+            except Exception:
+                pass
 
     def al_escribir(self, *args):
         if self.auto_var.get():
@@ -262,8 +272,9 @@ class GeneradorQRApp:
                     "Atención", "Por favor, escribe una web o texto primero."
                 )
             self.qr_pil_image = None
-            self.lbl_imagen.config(image="", text="Aquí aparecerá tu QR")
+            self.qr_tk_image = None
             self.btn_guardar.config(state=tk.DISABLED)
+            self.actualizar_vista_previa()
             return
 
         qr = qrcode.QRCode(version=1, box_size=10, border=3)
@@ -290,16 +301,11 @@ class GeneradorQRApp:
 
             bbox = draw_temp.textbbox((0, 0), texto, font=fuente)
             ancho_texto = bbox[2] - bbox[0]
-            alto_texto = bbox[3] - bbox[1]
 
-            # El borde blanco nativo del QR mide 30px (box_size=10 * border=3)
             borde_qr = 30
-            separacion = 15  # Mismo espacio arriba y abajo del texto
+            separacion = 15
 
-            # Donde terminan los cuadritos negros del QR + 15px - aire superior de la fuente
             pos_y = (alto_qr - borde_qr) + separacion - bbox[1]
-
-            # Donde termina visualmente la letra (pos_y + bbox[3]) + otros 15px exactos
             alto_total = pos_y + bbox[3] + separacion
 
             lienzo = Image.new("RGB", (ancho_qr, alto_total), "white")
@@ -317,18 +323,28 @@ class GeneradorQRApp:
         self.actualizar_vista_previa()
 
     def redimensionar_preview(self, event):
-        if self.qr_pil_image:
-            self.actualizar_vista_previa(event.width, event.height)
+        self.actualizar_vista_previa(event.width, event.height)
 
     def actualizar_vista_previa(self, ancho_disp=None, alto_disp=None):
-        if not self.qr_pil_image:
-            return
-
         if ancho_disp is None or alto_disp is None:
-            ancho_disp = self.lbl_imagen.winfo_width()
-            alto_disp = self.lbl_imagen.winfo_height()
+            self.canvas_qr.update_idletasks()
+            ancho_disp = self.canvas_qr.winfo_width()
+            alto_disp = self.canvas_qr.winfo_height()
 
         if ancho_disp < 20 or alto_disp < 20:
+            return
+
+        self.canvas_qr.delete("all")
+
+        # Si no hay QR generado, mostrar el texto de ayuda centrado
+        if not self.qr_pil_image:
+            self.canvas_qr.create_text(
+                ancho_disp // 2,
+                alto_disp // 2,
+                text="Aquí aparecerá tu QR",
+                fill=self.colores["fg"],
+                font=("Arial", 10),
+            )
             return
 
         max_w = ancho_disp - 20
@@ -343,7 +359,12 @@ class GeneradorQRApp:
             (nuevo_w, nuevo_h), Image.Resampling.LANCZOS
         )
         self.qr_tk_image = ImageTk.PhotoImage(img_resized)
-        self.lbl_imagen.config(image=self.qr_tk_image, text="")
+        self.canvas_qr.create_image(
+            ancho_disp // 2,
+            alto_disp // 2,
+            image=self.qr_tk_image,
+            anchor="center",
+        )
 
     def guardar_qr(self):
         if self.qr_pil_image:
@@ -358,15 +379,13 @@ class GeneradorQRApp:
                 messagebox.showinfo("Éxito", "Código QR guardado correctamente.")
 
     def mostrar_menu_qr(self, event):
-            """Muestra el menú al hacer clic derecho solo si ya hay un QR generado."""
-            if self.qr_pil_image:
-                try:
-                    self.menu_qr.tk_popup(event.x_root, event.y_root)
-                finally:
-                    self.menu_qr.grab_release()
+        if self.qr_pil_image:
+            try:
+                self.menu_qr.tk_popup(event.x_root, event.y_root)
+            finally:
+                self.menu_qr.grab_release()
 
     def copiar_al_portapapeles(self):
-        """Copia self.qr_pil_image al portapapeles en Windows y Linux sin librerías extra."""
         if not self.qr_pil_image:
             return
 
@@ -375,7 +394,6 @@ class GeneradorQRApp:
             if sys.platform == "win32":
                 import ctypes
 
-                # Convertir imagen Pillow a formato DIB (BMP sin los primeros 14 bytes de cabecera)
                 salida = io.BytesIO()
                 self.qr_pil_image.convert("RGB").save(salida, "BMP")
                 datos_dib = salida.getvalue()[14:]
@@ -411,9 +429,11 @@ class GeneradorQRApp:
                 datos_png = salida.getvalue()
                 salida.close()
 
-                # Intentar primero Wayland (wl-copy) y luego X11 (xclip)
                 copiado = False
-                for cmd in (["wl-copy", "--type", "image/png"], ["xclip", "-selection", "clipboard", "-t", "image/png", "-i"]):
+                for cmd in (
+                    ["wl-copy", "--type", "image/png"],
+                    ["xclip", "-selection", "clipboard", "-t", "image/png", "-i"],
+                ):
                     try:
                         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
                         proc.communicate(input=datos_png)
@@ -424,16 +444,20 @@ class GeneradorQRApp:
                         continue
 
                 if not copiado:
-                    messagebox.showwarning("Aviso", "Instala 'wl-clipboard' o 'xclip' en tu sistema para copiar imágenes.")
+                    messagebox.showwarning(
+                        "Aviso",
+                        "Instala 'wl-clipboard' o 'xclip' en tu sistema para copiar imágenes.",
+                    )
                     return
 
-            # Feedback visual rápido en el título de la ventana
             titulo_original = self.root.title()
             self.root.title("¡QR copiado al portapapeles!")
             self.root.after(1500, lambda: self.root.title(titulo_original))
 
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo copiar al portapapeles:\n{e}")
+
+
 if __name__ == "__main__":
     try:
         ventana = tk.Tk()
@@ -441,6 +465,7 @@ if __name__ == "__main__":
         ventana.mainloop()
     except Exception as e:
         import traceback
+
         root_err = tk.Tk()
         root_err.withdraw()
         messagebox.showerror("Error al iniciar", traceback.format_exc())
