@@ -7,7 +7,7 @@ from tkinter import filedialog, messagebox
 import qrcode
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
-ver = "1.2.1"
+ver = "1.2.2"
 autor = "Maki"
 
 
