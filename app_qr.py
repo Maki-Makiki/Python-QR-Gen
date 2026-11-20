@@ -1,3 +1,6 @@
+import io
+import subprocess
+
 import os
 import sys
 import tkinter as tk
@@ -5,7 +8,7 @@ from tkinter import filedialog, messagebox
 import qrcode
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
-ver = "1.1.0"
+ver = "1.2.0"
 autor = "Maki"
 
 class GeneradorQRApp:
@@ -156,16 +159,19 @@ class GeneradorQRApp:
         self.lbl_imagen.grid(row=3, column=0, pady=(5, 20), padx=20, sticky="nsew")
         self.lbl_imagen.bind("<Configure>", self.redimensionar_preview)
 
-                # Fila 3: Área para mostrar el QR
-        self.lbl_imagen = tk.Label(
+        # Menú contextual (Clic derecho en la imagen)
+        self.menu_qr = tk.Menu(
             root,
-            text="Aquí aparecerá tu QR",
-            bg=self.colores["preview_bg"],
+            tearoff=0,
+            bg=self.colores["input_bg"],
             fg=self.colores["fg"],
-            relief="flat",
+            activebackground=self.colores["accent"],
+            activeforeground="white",
         )
-        self.lbl_imagen.grid(row=3, column=0, pady=(5, 20), padx=20, sticky="nsew")
-        self.lbl_imagen.bind("<Configure>", self.redimensionar_preview)
+        self.menu_qr.add_command(label="Copiar imagen al portapapeles", command=self.copiar_al_portapapeles)
+        self.menu_qr.add_command(label="Guardar como...", command=self.guardar_qr)
+
+        self.lbl_imagen.bind("<Button-3>", self.mostrar_menu_qr)
 
         # Pintar la barra superior en oscuro una vez que la ventana ya sea visible
         if self.es_oscuro:
@@ -286,13 +292,21 @@ class GeneradorQRApp:
             ancho_texto = bbox[2] - bbox[0]
             alto_texto = bbox[3] - bbox[1]
 
-            alto_extra = alto_texto + 25
-            lienzo = Image.new("RGB", (ancho_qr, alto_qr + alto_extra), "white")
+            # El borde blanco nativo del QR mide 30px (box_size=10 * border=3)
+            borde_qr = 30
+            separacion = 15  # Mismo espacio arriba y abajo del texto
+
+            # Donde terminan los cuadritos negros del QR + 15px - aire superior de la fuente
+            pos_y = (alto_qr - borde_qr) + separacion - bbox[1]
+
+            # Donde termina visualmente la letra (pos_y + bbox[3]) + otros 15px exactos
+            alto_total = pos_y + bbox[3] + separacion
+
+            lienzo = Image.new("RGB", (ancho_qr, alto_total), "white")
             lienzo.paste(img_qr, (0, 0))
 
             draw = ImageDraw.Draw(lienzo)
             pos_x = (ancho_qr - ancho_texto) // 2
-            pos_y = alto_qr + 5
             draw.text((pos_x, pos_y), texto, fill="black", font=fuente)
 
             self.qr_pil_image = lienzo
@@ -343,7 +357,83 @@ class GeneradorQRApp:
                 self.qr_pil_image.save(ruta_archivo)
                 messagebox.showinfo("Éxito", "Código QR guardado correctamente.")
 
+    def mostrar_menu_qr(self, event):
+            """Muestra el menú al hacer clic derecho solo si ya hay un QR generado."""
+            if self.qr_pil_image:
+                try:
+                    self.menu_qr.tk_popup(event.x_root, event.y_root)
+                finally:
+                    self.menu_qr.grab_release()
 
+    def copiar_al_portapapeles(self):
+        """Copia self.qr_pil_image al portapapeles en Windows y Linux sin librerías extra."""
+        if not self.qr_pil_image:
+            return
+
+        try:
+            # --- WINDOWS ---
+            if sys.platform == "win32":
+                import ctypes
+
+                # Convertir imagen Pillow a formato DIB (BMP sin los primeros 14 bytes de cabecera)
+                salida = io.BytesIO()
+                self.qr_pil_image.convert("RGB").save(salida, "BMP")
+                datos_dib = salida.getvalue()[14:]
+                salida.close()
+
+                CF_DIB = 8
+                GMEM_MOVEABLE = 0x0002
+
+                kernel32 = ctypes.windll.kernel32
+                user32 = ctypes.windll.user32
+
+                kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+                kernel32.GlobalAlloc.restype = ctypes.c_void_p
+                kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+                kernel32.GlobalLock.restype = ctypes.c_void_p
+                kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+                user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+
+                h_global = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(datos_dib))
+                p_global = kernel32.GlobalLock(h_global)
+                ctypes.memmove(p_global, datos_dib, len(datos_dib))
+                kernel32.GlobalUnlock(h_global)
+
+                user32.OpenClipboard(None)
+                user32.EmptyClipboard()
+                user32.SetClipboardData(CF_DIB, h_global)
+                user32.CloseClipboard()
+
+            # --- LINUX (Wayland / X11) ---
+            elif sys.platform.startswith("linux"):
+                salida = io.BytesIO()
+                self.qr_pil_image.save(salida, "PNG")
+                datos_png = salida.getvalue()
+                salida.close()
+
+                # Intentar primero Wayland (wl-copy) y luego X11 (xclip)
+                copiado = False
+                for cmd in (["wl-copy", "--type", "image/png"], ["xclip", "-selection", "clipboard", "-t", "image/png", "-i"]):
+                    try:
+                        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+                        proc.communicate(input=datos_png)
+                        if proc.returncode == 0:
+                            copiado = True
+                            break
+                    except FileNotFoundError:
+                        continue
+
+                if not copiado:
+                    messagebox.showwarning("Aviso", "Instala 'wl-clipboard' o 'xclip' en tu sistema para copiar imágenes.")
+                    return
+
+            # Feedback visual rápido en el título de la ventana
+            titulo_original = self.root.title()
+            self.root.title("¡QR copiado al portapapeles!")
+            self.root.after(1500, lambda: self.root.title(titulo_original))
+
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo copiar al portapapeles:\n{e}")
 if __name__ == "__main__":
     try:
         ventana = tk.Tk()
