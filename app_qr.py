@@ -5,11 +5,13 @@ from tkinter import filedialog, messagebox
 import qrcode
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
+ver = "1.1.0"
+autor = "Maki"
 
 class GeneradorQRApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Generador de QR Portable v1.1 - by Maki")
+        self.root.title("Generador de QR Portable v" + ver + " - by "+ autor)
         # Cargar el ícono de la ventana y barra de tareas
         try:
             ruta_icono = self.obtener_ruta_recurso("QR Code Icon.png")
