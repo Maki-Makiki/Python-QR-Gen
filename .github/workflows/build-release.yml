@@ -61,7 +61,7 @@ jobs:
 
       - name: Compilar binario base
         run: |
-          pyinstaller --onefile --windowed --add-data "QR Code Icon.png:." --name="GeneradorQR" app_qr.py
+          pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --add-data "QR Code Icon.png:." --name="GeneradorQR" app_qr.py
 
       - name: Empaquetar en .AppImage
         env:
