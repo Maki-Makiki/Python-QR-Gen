@@ -7,9 +7,10 @@
 - Automáticamente
 - Agregar el URL en la imagen del QR
 - Guardar en formato .JPG y .PNG
+- Menú contextual que permite Copiar el QR sin guardarlo
 
 ## Capturas:
-<img width="413" height="658" alt="image" src="https://github.com/user-attachments/assets/0cf443da-dab4-4f17-9305-86e5613ac7b7" />
+<img width="347" height="554" alt="image" src="https://github.com/user-attachments/assets/bcec3b1a-24f1-472f-b1fe-b7f2428435f9" />
 
 ## Instalación:
 - las últimas versiones están aquí [Relases [Latest]](https://github.com/Maki-Makiki/Python-QR-Gen/releases/latest)
