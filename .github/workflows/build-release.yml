@@ -1,24 +1,22 @@
 name: Compilar Windows (.exe) y Linux (.AppImage)
 
 on:
-  # Se ejecuta automáticamente al publicar un Release en GitHub
   release:
     types: [published]
-  # También te permite lanzarlo manualmente desde la pestaña "Actions" de GitHub
   workflow_dispatch:
 
 permissions:
-  contents: write  # Permiso necesario para adjuntar los archivos al Release
+  contents: write
 
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configurar Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -32,7 +30,7 @@ jobs:
           pyinstaller --onefile --windowed --icon="icono.ico" --add-data "QR Code Icon.png;." --name="GeneradorQR-Windows" app_qr.py
 
       - name: Subir artefacto (para pruebas manuales)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: GeneradorQR-Windows
           path: dist/GeneradorQR-Windows.exe
@@ -47,17 +45,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configurar Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - name: Instalar Tkinter y dependencias de sistema
+      - name: Instalar Tkinter y dependencias
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk libfuse2 wget
+          sudo apt-get install -y python3-tk wget
+          python -m pip install --upgrade pip
           pip install qrcode[pil] pyinstaller
 
       - name: Compilar binario base
@@ -91,7 +90,7 @@ jobs:
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run GeneradorQR.AppDir GeneradorQR-Linux-x86_64.AppImage
 
       - name: Subir artefacto (para pruebas manuales)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: GeneradorQR-Linux
           path: GeneradorQR-Linux-x86_64.AppImage
