@@ -1,0 +1,103 @@
+name: Compilar Windows (.exe) y Linux (.AppImage)
+
+on:
+  # Se ejecuta automáticamente al publicar un Release en GitHub
+  release:
+    types: [published]
+  # También te permite lanzarlo manualmente desde la pestaña "Actions" de GitHub
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Permiso necesario para adjuntar los archivos al Release
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install qrcode[pil] pyinstaller
+
+      - name: Compilar .exe con PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --icon="icono.ico" --add-data "QR Code Icon.png;." --name="GeneradorQR-Windows" app_qr.py
+
+      - name: Subir artefacto (para pruebas manuales)
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeneradorQR-Windows
+          path: dist/GeneradorQR-Windows.exe
+
+      - name: Adjuntar .exe al Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/GeneradorQR-Windows.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar Tkinter y dependencias de sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk libfuse2 wget
+          pip install qrcode[pil] pyinstaller
+
+      - name: Compilar binario base
+        run: |
+          pyinstaller --onefile --windowed --add-data "QR Code Icon.png:." --name="GeneradorQR" app_qr.py
+
+      - name: Empaquetar en .AppImage
+        run: |
+          mkdir -p GeneradorQR.AppDir/usr/bin
+          cp dist/GeneradorQR GeneradorQR.AppDir/usr/bin/
+          cp "QR Code Icon.png" GeneradorQR.AppDir/GeneradorQR.png
+
+          cat << 'EOF' > GeneradorQR.AppDir/AppRun
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/GeneradorQR" "$@"
+          EOF
+          chmod +x GeneradorQR.AppDir/AppRun
+
+          cat << 'EOF' > GeneradorQR.AppDir/GeneradorQR.desktop
+          [Desktop Entry]
+          Name=Generador QR
+          Exec=GeneradorQR
+          Icon=GeneradorQR
+          Type=Application
+          Categories=Utility;
+          EOF
+
+          wget -q https://github.com
+          chmod +x appimagetool-x86_64.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run GeneradorQR.AppDir GeneradorQR-Linux-x86_64.AppImage
+
+      - name: Subir artefacto (para pruebas manuales)
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeneradorQR-Linux
+          path: GeneradorQR-Linux-x86_64.AppImage
+
+      - name: Adjuntar .AppImage al Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: GeneradorQR-Linux-x86_64.AppImage
