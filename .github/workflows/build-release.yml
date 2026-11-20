@@ -64,6 +64,8 @@ jobs:
           pyinstaller --onefile --windowed --add-data "QR Code Icon.png:." --name="GeneradorQR" app_qr.py
 
       - name: Empaquetar en .AppImage
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p GeneradorQR.AppDir/usr/bin
           cp dist/GeneradorQR GeneradorQR.AppDir/usr/bin/
@@ -85,7 +87,7 @@ jobs:
           Categories=Utility;
           EOF
 
-          curl -fL -o appimagetool-x86_64.AppImage https://github.com
+          gh release download continuous --repo AppImage/appimagetool --pattern "appimagetool-x86_64.AppImage"
           chmod +x appimagetool-x86_64.AppImage
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run GeneradorQR.AppDir GeneradorQR-Linux-x86_64.AppImage
 
