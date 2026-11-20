@@ -12,7 +12,8 @@
 <img width="413" height="658" alt="image" src="https://github.com/user-attachments/assets/0cf443da-dab4-4f17-9305-86e5613ac7b7" />
 
 ## Instalación:
-- no es necesaria, es portable tanto en windows como linux
+- las ultimas versiones estan aqui [Relases [Latest]](https://github.com/Maki-Makiki/Python-QR-Gen/releases/latest)
+- no se instala, es portable tanto en windows como linux
 - (en linux debes pponerle el atributo ejecutable desde las propiedades del archivo)
 
 ## Compatibilidad Testeada:
